@@ -1,5 +1,9 @@
 let defferedPrompt = null;
 
+if(!window.Promise) {
+    window.Promise = Promise;
+}
+
 if('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').then(() => { // {scope: '/help/'} - we can override scope of sw
         console.log('Service Worker Refistered!');
