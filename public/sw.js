@@ -1,5 +1,5 @@
-const CACHE_STATIC_NAME = 'static-v2';
-const CACHE_DYNAMIC_NAME = 'dynamic-v1';
+const CACHE_STATIC_NAME = 'static-v9';
+const CACHE_DYNAMIC_NAME = 'dynamic-v2';
 
 self.addEventListener('install', e => {
     console.log('[Service Worker] Installing service worker ...', e);
@@ -9,6 +9,7 @@ self.addEventListener('install', e => {
             cache.addAll([
                 '/',
                 '/index.html',
+                '/offline.html',
                 '/src/js/app.js',
                 '/src/js/feed.js',
                 '/src/js/promise.js',
@@ -39,20 +40,88 @@ self.addEventListener('activate', e => {
     return self.clients.claim(); // be more sure that activation will succeed!
 });
 
+// self.addEventListener('fetch', e => {
+//     // console.log('[Service Worker] Fetching something ...', e);
+//     e.respondWith(
+//         caches.match(e.request).then(res => {
+//             if(res) {
+//                 return res; // if cache return it
+//             } else {
+//                 return fetch(e.request).then(response => { // if no cache try to make request and cache it
+//                     return caches.open(CACHE_DYNAMIC_NAME).then(cache => {
+//                         cache.put(e.request.url, response.clone());
+//                         return response;
+//                     })
+//                 }).catch(err => { // if no network and no cache
+//                     return caches.open(CACHE_STATIC_NAME).then(cache => { // Provide fallback
+//                         return cache.match('/offline.html')
+//                     })
+//                 });
+//             }
+//         })
+//     );
+// });
+
+/* Cache then Network */
 self.addEventListener('fetch', e => {
-    // console.log('[Service Worker] Fetching something ...', e);
-    e.respondWith(
-        caches.match(e.request).then(res => {
-            if(res) {
-                return res;
-            } else {
-                return fetch(e.request).then(response => {
-                    return caches.open(CACHE_DYNAMIC_NAME).then(cache => {
-                        cache.put(e.request.url, response.clone());
-                        return response;
-                    })
+    var url = 'https://httpbin.org/get';
+
+    if(e.request.url.indexOf(url) > -1) {
+        e.respondWith(
+            caches.open(CACHE_DYNAMIC_NAME).then(cache => {
+                return fetch(e.request).then(res => {
+                    cache.put(e.request, res.clone());
+                    return res;
                 })
-            }
-        })
-    );
+            })
+        )
+    } else {
+        e.respondWith(
+            caches.match(e.request).then(res => {
+                if(res) {
+                    return res; // if cache return it
+                } else {
+                    return fetch(e.request).then(response => { // if no cache try to make request and cache it
+                        return caches.open(CACHE_DYNAMIC_NAME).then(cache => {
+                            cache.put(e.request.url, response.clone());
+                            return response;
+                        })
+                    }).catch(err => { // if no network and no cache
+                        return caches.open(CACHE_STATIC_NAME).then(cache => { // Provide fallback
+                            return cache.match('/offline.html')
+                        })
+                    });
+                }
+            })
+
+        );
+    }
 });
+
+/* Cache-only */
+// self.addEventListener('fetch', e => {
+//     e.respondWith(
+//         caches.match(e.request)
+//     );
+// });
+
+/* Network-only */
+// self.addEventListener('fetch', e => {
+//     e.respondWith(
+//         fetch(e.request)
+//     );
+// });
+
+/* Network first with dynamic caching and Cache Fallback */
+// self.addEventListener('fetch', e => {
+//     e.respondWith(
+//         fetch(e.request).then(response => {
+//             return caches.open(CACHE_DYNAMIC_NAME).then(cache => {
+//                 cache.put(e.request.url, response.clone());
+//                 return response;
+//             })
+//         }).catch(err => {
+//             caches.match(e.request)
+//         })
+//     );
+// });
