@@ -1,27 +1,28 @@
 const CACHE_STATIC_NAME = 'static-v9';
 const CACHE_DYNAMIC_NAME = 'dynamic-v2';
+const STATIC_FILES = [
+    '/',
+    '/index.html',
+    '/offline.html',
+    '/src/js/app.js',
+    '/src/js/feed.js',
+    '/src/js/promise.js',
+    '/src/js/fetch.js',
+    '/src/js/material.min.js',
+    '/src/css/app.css',
+    '/src/css/feed.css',
+    '/src/images/main-image.jpg',
+    'https://fonts.googleapis.com/css?family=Roboto:400,700',
+    'https://fonts.googleapis.com/icon?family=Material+Icons',
+    'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
+];
 
 self.addEventListener('install', e => {
     console.log('[Service Worker] Installing service worker ...', e);
     e.waitUntil(
         caches.open(CACHE_STATIC_NAME).then(cache => {
             console.log('[Service Worker] Precaching App Shell');
-            cache.addAll([
-                '/',
-                '/index.html',
-                '/offline.html',
-                '/src/js/app.js',
-                '/src/js/feed.js',
-                '/src/js/promise.js',
-                '/src/js/fetch.js',
-                '/src/js/material.min.js',
-                '/src/css/app.css',
-                '/src/css/feed.css',
-                '/src/images/main-image.jpg',
-                'https://fonts.googleapis.com/css?family=Roboto:400,700',
-                'https://fonts.googleapis.com/icon?family=Material+Icons',
-                'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
-            ])
+            cache.addAll(STATIC_FILES)
         })
     );
 });
@@ -62,6 +63,15 @@ self.addEventListener('activate', e => {
 //     );
 // });
 
+const isInArray = (string, array) => {
+  for(let i = 0; i < array.length; i++) {
+      if(array[i] === string) {
+          return true;
+      }
+  }
+  return false;
+};
+
 /* Cache then Network */
 self.addEventListener('fetch', e => {
     var url = 'https://httpbin.org/get';
@@ -74,6 +84,10 @@ self.addEventListener('fetch', e => {
                     return res;
                 })
             })
+        )
+    } else if(isInArray(e.request.url, STATIC_FILES)) {
+        e.respondWith(
+            caches.match(e.request)
         )
     } else {
         e.respondWith(
@@ -88,7 +102,9 @@ self.addEventListener('fetch', e => {
                         })
                     }).catch(err => { // if no network and no cache
                         return caches.open(CACHE_STATIC_NAME).then(cache => { // Provide fallback
-                            return cache.match('/offline.html')
+                            if(e.request.headers.get('accept').includes('text/html')) { // Do fallback only for html 
+                                return cache.match('/offline.html')
+                            }
                         })
                     });
                 }
