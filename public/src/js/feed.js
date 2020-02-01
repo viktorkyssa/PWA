@@ -5,7 +5,7 @@ var sharedMomentsArea = document.querySelector('#shared-moments');
 
 function openCreatePostModal() {
   createPostArea.style.display = 'block';
-  if(defferedPrompt) {
+  if(defferedPrompt) { // Open install as PWS modal
     defferedPrompt.prompt();
 
     defferedPrompt.userChoice.then(choiceResult => {
@@ -20,6 +20,15 @@ function openCreatePostModal() {
 
     defferedPrompt = null;
   }
+
+  // Unregister Service Worker
+  // if('Service Worker' in navigator) {
+  //   navigator.serviceWorker.getRegistrations().then(registrations => {
+  //     for(let i = 0; i < registrations.length; i++) {
+  //       registrations[i].unregister();
+  //     }
+  //   })
+  // }
 }
 
 function closeCreatePostModal() {

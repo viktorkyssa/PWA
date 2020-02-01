@@ -1,5 +1,5 @@
-const CACHE_STATIC_NAME = 'static-v9';
-const CACHE_DYNAMIC_NAME = 'dynamic-v2';
+const CACHE_STATIC_NAME = 'static-v14';
+const CACHE_DYNAMIC_NAME = 'dynamic-v3';
 const STATIC_FILES = [
     '/',
     '/index.html',
@@ -17,17 +17,17 @@ const STATIC_FILES = [
     'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
 ];
 
-const trimCache = (cacheName, maxItems) => {
-  caches.open(cacheName).then(cache => {
-      return cache.keys().then(keys => {
-          if(keys.length > maxItems) {
-              cache.delete(keys[0]).then(() => {
-                  trimCache(cacheName, maxItems)
-              })
-          }
-      })
-  })
-};
+// const trimCache = (cacheName, maxItems) => {
+//   caches.open(cacheName).then(cache => {
+//       return cache.keys().then(keys => {
+//           if(keys.length > maxItems) {
+//               cache.delete(keys[0]).then(() => {
+//                   trimCache(cacheName, maxItems)
+//               })
+//           }
+//       })
+//   })
+// };
 
 self.addEventListener('install', e => {
     console.log('[Service Worker] Installing service worker ...', e);
@@ -92,7 +92,7 @@ self.addEventListener('fetch', e => {
         e.respondWith(
             caches.open(CACHE_DYNAMIC_NAME).then(cache => {
                 return fetch(e.request).then(res => {
-                    trimCache(CACHE_DYNAMIC_NAME, 20);
+                    // trimCache(CACHE_DYNAMIC_NAME, 20);
                     cache.put(e.request, res.clone());
                     return res;
                 })
@@ -110,7 +110,7 @@ self.addEventListener('fetch', e => {
                 } else {
                     return fetch(e.request).then(response => { // if no cache try to make request and cache it
                         return caches.open(CACHE_DYNAMIC_NAME).then(cache => {
-                            trimCache(CACHE_DYNAMIC_NAME, 20);
+                            // trimCache(CACHE_DYNAMIC_NAME, 20);
                             cache.put(e.request.url, response.clone());
                             return response;
                         })
