@@ -5,29 +5,29 @@ var sharedMomentsArea = document.querySelector('#shared-moments');
 
 function openCreatePostModal() {
   createPostArea.style.display = 'block';
-  if(defferedPrompt) { // Open install as PWS modal
-    defferedPrompt.prompt();
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
 
-    defferedPrompt.userChoice.then(choiceResult => {
+    deferredPrompt.userChoice.then(function(choiceResult) {
       console.log(choiceResult.outcome);
 
-      if(choiceResult.outcome === 'dismissed') {
+      if (choiceResult.outcome === 'dismissed') {
         console.log('User cancelled installation');
       } else {
-        console.log('User added to homescreen');
+        console.log('User added to home screen');
       }
     });
 
-    defferedPrompt = null;
+    deferredPrompt = null;
   }
 
-  // Unregister Service Worker
-  // if('Service Worker' in navigator) {
-  //   navigator.serviceWorker.getRegistrations().then(registrations => {
-  //     for(let i = 0; i < registrations.length; i++) {
-  //       registrations[i].unregister();
-  //     }
-  //   })
+  // if ('serviceWorker' in navigator) {
+  //   navigator.serviceWorker.getRegistrations()
+  //     .then(function(registrations) {
+  //       for (var i = 0; i < registrations.length; i++) {
+  //         registrations[i].unregister();
+  //       }
+  //     })
   // }
 }
 
@@ -39,16 +39,17 @@ shareImageButton.addEventListener('click', openCreatePostModal);
 
 closeCreatePostModalButton.addEventListener('click', closeCreatePostModal);
 
-// Allows you to cache assets on click
-const onSaveButtonClicked = () => {
+// Currently not in use, allows to save assets in cache on demand otherwise
+function onSaveButtonClicked(event) {
   console.log('clicked');
-  if('caches' in window) {
-    caches.open('user-requested').then(cache => {
-      cache.add('https://httpbin.org/get');
-      cache.add('/src/images/sf-boat.jpg');
-    });
+  if ('caches' in window) {
+    caches.open('user-requested')
+      .then(function(cache) {
+        cache.add('https://httpbin.org/get');
+        cache.add('/src/images/sf-boat.jpg');
+      });
   }
-};
+}
 
 function clearCards() {
   while(sharedMomentsArea.hasChildNodes()) {
@@ -56,65 +57,63 @@ function clearCards() {
   }
 }
 
-function createCard() {
+function createCard(data) {
   var cardWrapper = document.createElement('div');
   cardWrapper.className = 'shared-moment-card mdl-card mdl-shadow--2dp';
   var cardTitle = document.createElement('div');
   cardTitle.className = 'mdl-card__title';
-  cardTitle.style.backgroundImage = 'url("/src/images/sf-boat.jpg")';
+  cardTitle.style.backgroundImage = 'url(' + data.image + ')';
   cardTitle.style.backgroundSize = 'cover';
   cardTitle.style.height = '180px';
   cardWrapper.appendChild(cardTitle);
   var cardTitleTextElement = document.createElement('h2');
+  cardTitleTextElement.style.color = 'white';
   cardTitleTextElement.className = 'mdl-card__title-text';
-  cardTitleTextElement.textContent = 'San Francisco Trip';
+  cardTitleTextElement.textContent = data.title;
   cardTitle.appendChild(cardTitleTextElement);
   var cardSupportingText = document.createElement('div');
   cardSupportingText.className = 'mdl-card__supporting-text';
-  cardSupportingText.textContent = 'In San Francisco';
+  cardSupportingText.textContent = data.location;
   cardSupportingText.style.textAlign = 'center';
   // var cardSaveButton = document.createElement('button');
   // cardSaveButton.textContent = 'Save';
-  // cardSaveButton.addEventListener('click', onSaveButtonClicked)
+  // cardSaveButton.addEventListener('click', onSaveButtonClicked);
   // cardSupportingText.appendChild(cardSaveButton);
   cardWrapper.appendChild(cardSupportingText);
   componentHandler.upgradeElement(cardWrapper);
   sharedMomentsArea.appendChild(cardWrapper);
 }
 
-var url = 'https://httpbin.org/post';
-var networkDataRecieved = false;
-
-fetch(url, {
-  method: 'POST',
-  headers: {
-    'Content-Type': 'application/json',
-    'Accept': 'application/json'
-  },
-  body: JSON.stringify({
-    message: 'Some message'
-  })
-}).then(function(res) {
-  return res.json();
-}).then(function(data) {
-  console.log('Data from WEB',data);
-  networkDataRecieved = true;
+function updateUI(data) {
   clearCards();
-  createCard();
-});
-
-
-if('caches' in window) {
-  caches.match(url).then(res => {
-    if(res) {
-      return res.json();
-    }
-  }).then(data => {
-    console.log('Data from Cache',data);
-    if(!networkDataRecieved) {
-      clearCards();
-      createCard();
-    }
-  });
+  for (var i = 0; i < data.length; i++) {
+    createCard(data[i]);
+  }
 }
 
+var url = 'https://pwagram-51f80.firebaseio.com/posts.json';
+var networkDataReceived = false;
+
+fetch(url)
+  .then(function(res) {
+    return res.json();
+  })
+  .then(function(data) {
+    networkDataReceived = true;
+    console.log('From web', data);
+    var dataArray = [];
+    for (var key in data) {
+      dataArray.push(data[key]);
+    }
+    updateUI(dataArray);
+  });
+
+if ('indexedDB' in window) {
+  readAllData('posts')
+    .then(function(data) {
+      if (!networkDataReceived) {
+        console.log('From cache', data);
+        updateUI(data);
+      }
+    });
+}

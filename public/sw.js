@@ -1,157 +1,182 @@
-const CACHE_STATIC_NAME = 'static-v14';
-const CACHE_DYNAMIC_NAME = 'dynamic-v3';
-const STATIC_FILES = [
-    '/',
-    '/index.html',
-    '/offline.html',
-    '/src/js/app.js',
-    '/src/js/feed.js',
-    '/src/js/promise.js',
-    '/src/js/fetch.js',
-    '/src/js/material.min.js',
-    '/src/css/app.css',
-    '/src/css/feed.css',
-    '/src/images/main-image.jpg',
-    'https://fonts.googleapis.com/css?family=Roboto:400,700',
-    'https://fonts.googleapis.com/icon?family=Material+Icons',
-    'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
+
+
+importScripts('/src/js/idb.js');
+importScripts('/src/js/utility.js');
+
+var CACHE_STATIC_NAME = 'static-v19';
+var CACHE_DYNAMIC_NAME = 'dynamic-v3';
+var STATIC_FILES = [
+  '/',
+  '/index.html',
+  '/offline.html',
+  '/src/js/app.js',
+  '/src/js/feed.js',
+  '/src/js/idb.js',
+  '/src/js/promise.js',
+  '/src/js/fetch.js',
+  '/src/js/material.min.js',
+  '/src/css/app.css',
+  '/src/css/feed.css',
+  '/src/images/main-image.jpg',
+  'https://fonts.googleapis.com/css?family=Roboto:400,700',
+  'https://fonts.googleapis.com/icon?family=Material+Icons',
+  'https://cdnjs.cloudflare.com/ajax/libs/material-design-lite/1.3.0/material.indigo-pink.min.css'
 ];
 
-// const trimCache = (cacheName, maxItems) => {
-//   caches.open(cacheName).then(cache => {
-//       return cache.keys().then(keys => {
-//           if(keys.length > maxItems) {
-//               cache.delete(keys[0]).then(() => {
-//                   trimCache(cacheName, maxItems)
-//               })
+// function trimCache(cacheName, maxItems) {
+//   caches.open(cacheName)
+//     .then(function (cache) {
+//       return cache.keys()
+//         .then(function (keys) {
+//           if (keys.length > maxItems) {
+//             cache.delete(keys[0])
+//               .then(trimCache(cacheName, maxItems));
 //           }
-//       })
-//   })
-// };
+//         });
+//     })
+// }
 
-self.addEventListener('install', e => {
-    console.log('[Service Worker] Installing service worker ...', e);
-    e.waitUntil(
-        caches.open(CACHE_STATIC_NAME).then(cache => {
-            console.log('[Service Worker] Precaching App Shell');
-            cache.addAll(STATIC_FILES)
-        })
-    );
+self.addEventListener('install', function (event) {
+  console.log('[Service Worker] Installing Service Worker ...', event);
+  event.waitUntil(
+    caches.open(CACHE_STATIC_NAME)
+      .then(function (cache) {
+        console.log('[Service Worker] Precaching App Shell');
+        cache.addAll(STATIC_FILES);
+      })
+  )
 });
 
-self.addEventListener('activate', e => {
-    console.log('[Service Worker] Activating service worker ...', e);
-    e.waitUntil(
-        caches.keys().then(keyList => {
-            return Promise.all(keyList.map(key => {
-                if(key !== CACHE_STATIC_NAME && key !== CACHE_DYNAMIC_NAME) {
-                    return caches.delete(key);
-                }
-            }));
-        })
-    );
-    return self.clients.claim(); // be more sure that activation will succeed!
+self.addEventListener('activate', function (event) {
+  console.log('[Service Worker] Activating Service Worker ....', event);
+  event.waitUntil(
+    caches.keys()
+      .then(function (keyList) {
+        return Promise.all(keyList.map(function (key) {
+          if (key !== CACHE_STATIC_NAME && key !== CACHE_DYNAMIC_NAME) {
+            console.log('[Service Worker] Removing old cache.', key);
+            return caches.delete(key);
+          }
+        }));
+      })
+  );
+  return self.clients.claim();
 });
 
-// self.addEventListener('fetch', e => {
-//     // console.log('[Service Worker] Fetching something ...', e);
-//     e.respondWith(
-//         caches.match(e.request).then(res => {
-//             if(res) {
-//                 return res; // if cache return it
-//             } else {
-//                 return fetch(e.request).then(response => { // if no cache try to make request and cache it
-//                     return caches.open(CACHE_DYNAMIC_NAME).then(cache => {
-//                         cache.put(e.request.url, response.clone());
-//                         return response;
-//                     })
-//                 }).catch(err => { // if no network and no cache
-//                     return caches.open(CACHE_STATIC_NAME).then(cache => { // Provide fallback
-//                         return cache.match('/offline.html')
-//                     })
-//                 });
-//             }
-//         })
-//     );
-// });
-
-const isInArray = (string, array) => {
-  for(let i = 0; i < array.length; i++) {
-      if(array[i] === string) {
-          return true;
-      }
+function isInArray(string, array) {
+  var cachePath;
+  if (string.indexOf(self.origin) === 0) { // request targets domain where we serve the page from (i.e. NOT a CDN)
+    console.log('matched ', string);
+    cachePath = string.substring(self.origin.length); // take the part of the URL AFTER the domain (e.g. after localhost:8080)
+  } else {
+    cachePath = string; // store the full request (for CDNs)
   }
-  return false;
-};
+  return array.indexOf(cachePath) > -1;
+}
 
-/* Cache then Network */
-self.addEventListener('fetch', e => {
-    var url = 'https://httpbin.org/get';
+self.addEventListener('fetch', function (event) {
 
-    if(e.request.url.indexOf(url) > -1) {
-        e.respondWith(
-            caches.open(CACHE_DYNAMIC_NAME).then(cache => {
-                return fetch(e.request).then(res => {
-                    // trimCache(CACHE_DYNAMIC_NAME, 20);
-                    cache.put(e.request, res.clone());
+  var url = 'https://pwagram-51f80.firebaseio.com/posts';
+  if (event.request.url.indexOf(url) > -1) {
+    event.respondWith(fetch(event.request)
+      .then(function (res) {
+        var clonedRes = res.clone();
+        clearAllData('posts').then(function() {
+           return clonedRes.json();
+        }).then(function(data) {
+            for (var key in data) {
+                writeData('posts', data[key]);
+            }
+        });
+        return res;
+      })
+    );
+  } else if (isInArray(event.request.url, STATIC_FILES)) {
+    event.respondWith(
+      caches.match(event.request)
+    );
+  } else {
+    event.respondWith(
+      caches.match(event.request)
+        .then(function (response) {
+          if (response) {
+            return response;
+          } else {
+            return fetch(event.request)
+              .then(function (res) {
+                return caches.open(CACHE_DYNAMIC_NAME)
+                  .then(function (cache) {
+                    // trimCache(CACHE_DYNAMIC_NAME, 3);
+                    cache.put(event.request.url, res.clone());
                     return res;
-                })
-            })
-        )
-    } else if(isInArray(e.request.url, STATIC_FILES)) {
-        e.respondWith(
-            caches.match(e.request)
-        )
-    } else {
-        e.respondWith(
-            caches.match(e.request).then(res => {
-                if(res) {
-                    return res; // if cache return it
-                } else {
-                    return fetch(e.request).then(response => { // if no cache try to make request and cache it
-                        return caches.open(CACHE_DYNAMIC_NAME).then(cache => {
-                            // trimCache(CACHE_DYNAMIC_NAME, 20);
-                            cache.put(e.request.url, response.clone());
-                            return response;
-                        })
-                    }).catch(err => { // if no network and no cache
-                        return caches.open(CACHE_STATIC_NAME).then(cache => { // Provide fallback
-                            if(e.request.headers.get('accept').includes('text/html')) { // Do fallback only for html
-                                return cache.match('/offline.html')
-                            }
-                        })
-                    });
-                }
-            })
-
-        );
-    }
+                  })
+              })
+              .catch(function (err) {
+                return caches.open(CACHE_STATIC_NAME)
+                  .then(function (cache) {
+                    if (event.request.headers.get('accept').includes('text/html')) {
+                      return cache.match('/offline.html');
+                    }
+                  });
+              });
+          }
+        })
+    );
+  }
 });
 
-/* Cache-only */
-// self.addEventListener('fetch', e => {
-//     e.respondWith(
-//         caches.match(e.request)
-//     );
-// });
-
-/* Network-only */
-// self.addEventListener('fetch', e => {
-//     e.respondWith(
-//         fetch(e.request)
-//     );
-// });
-
-/* Network first with dynamic caching and Cache Fallback */
-// self.addEventListener('fetch', e => {
-//     e.respondWith(
-//         fetch(e.request).then(response => {
-//             return caches.open(CACHE_DYNAMIC_NAME).then(cache => {
-//                 cache.put(e.request.url, response.clone());
-//                 return response;
+// self.addEventListener('fetch', function(event) {
+//   event.respondWith(
+//     caches.match(event.request)
+//       .then(function(response) {
+//         if (response) {
+//           return response;
+//         } else {
+//           return fetch(event.request)
+//             .then(function(res) {
+//               return caches.open(CACHE_DYNAMIC_NAME)
+//                 .then(function(cache) {
+//                   cache.put(event.request.url, res.clone());
+//                   return res;
+//                 })
 //             })
-//         }).catch(err => {
-//             caches.match(e.request)
-//         })
-//     );
+//             .catch(function(err) {
+//               return caches.open(CACHE_STATIC_NAME)
+//                 .then(function(cache) {
+//                   return cache.match('/offline.html');
+//                 });
+//             });
+//         }
+//       })
+//   );
+// });
+
+// self.addEventListener('fetch', function(event) {
+//   event.respondWith(
+//     fetch(event.request)
+//       .then(function(res) {
+//         return caches.open(CACHE_DYNAMIC_NAME)
+//                 .then(function(cache) {
+//                   cache.put(event.request.url, res.clone());
+//                   return res;
+//                 })
+//       })
+//       .catch(function(err) {
+//         return caches.match(event.request);
+//       })
+//   );
+// });
+
+// Cache-only
+// self.addEventListener('fetch', function (event) {
+//   event.respondWith(
+//     caches.match(event.request)
+//   );
+// });
+
+// Network-only
+// self.addEventListener('fetch', function (event) {
+//   event.respondWith(
+//     fetch(event.request)
+//   );
 // });
